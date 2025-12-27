@@ -1,0 +1,17 @@
+
+#Problems
+1. Not working lockless ring buffer
+
+
+Current observation:
+###1. used mutex lock, only 1 write 1 read thread still ring buffer fails, Need to look at basic core implementation
+2. Still i see corruption becase reader or writer is not waititng till they complete the operation of other thread which is cauing problem
+
+3. Sometime entry count exceed more than max entry which should never happen (Not sure how updates being made) can be solved my proper memory ordering
+4. tail & ptr are same but entry count is weird leading to overwrite memory
+
+Things to do
+1. change pointer to atomic type and change atomic load API's and do test again --> tried
+2. Try memory ordering along with atomic operation  --> tried
+3. try proper acquire and relaxed memory ordering suggesion
+

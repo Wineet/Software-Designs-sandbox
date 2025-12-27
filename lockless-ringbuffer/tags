@@ -1,0 +1,62 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/asmuth/vinit/lockless-ringbuffer/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+BUILD_DIR	Makefile	/^BUILD_DIR	:= build$/;"	m
+CC	Makefile	/^CC	:= gcc$/;"	m
+CFLAGS	Makefile	/^CFLAGS	:= -Wall$/;"	m
+INC	Makefile	/^INC	:= -I$(INC_DIR)$/;"	m
+INC_DIR	Makefile	/^INC_DIR		:= inc$/;"	m
+LDFLAGS	Makefile	/^LDFLAGS	:=$/;"	m
+MAX_RETRY	src/ringbuffer.c	/^#define MAX_RETRY /;"	d	file:
+MAX_RETRY_CNT	test/ringbuffer_test.c	/^#define MAX_RETRY_CNT /;"	d	file:
+MUTEX_LOCK	src/ringbuffer.c	/^#define MUTEX_LOCK$/;"	d	file:
+NUM_THREAD	test/ringbuffer_test.c	/^#define NUM_THREAD /;"	d	file:
+SHAREDLIBFLAGS	Makefile	/^SHAREDLIBFLAGS	:= -fPIC -shared$/;"	m
+SRC	Makefile	/^SRC	:= $(SRC_DIR)\/ringbuffer.c$/;"	m
+SRC_DIR	Makefile	/^SRC_DIR	:= src$/;"	m
+TARGET	Makefile	/^TARGET	:= $(BUILD_DIR)\/libringbuffer_lib.so$/;"	m
+TEST	Makefile	/^TEST	:= $(TEST_DIR)\/ringbuffer_test$/;"	m
+TEST_DIR	Makefile	/^TEST_DIR	:= test$/;"	m
+TEST_LINKING_LIBS	Makefile	/^TEST_LINKING_LIBS	:= -l ringbuffer_lib \\$/;"	m
+TEST_SRC	Makefile	/^TEST_SRC	:= $(TEST_DIR)\/ringbuffer_test.c$/;"	m
+__RING_BUFFER_H_	inc/ringbuffer.h	/^#define __RING_BUFFER_H_$/;"	d
+all	Makefile	/^all:	$/;"	t
+all_write_exit	test/ringbuffer_test.c	/^bool all_write_exit =false;$/;"	v	typeref:typename:bool
+build	Makefile	/^build:$/;"	t
+clean	Makefile	/^clean:$/;"	t
+end_addr	inc/ringbuffer.h	/^	void *end_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+entry_count	inc/ringbuffer.h	/^	unsigned int  entry_count;$/;"	m	struct:ringbuffer	typeref:typename:unsigned int
+helper_read_routine	test/ringbuffer_test.c	/^void *helper_read_routine(void *ringbuffer_handle)$/;"	f	typeref:typename:void *
+helper_write_routine	test/ringbuffer_test.c	/^void *helper_write_routine(void *ringbuffer_handle)$/;"	f	typeref:typename:void *
+lock	src/ringbuffer.c	/^pthread_mutex_t lock;$/;"	v	typeref:typename:pthread_mutex_t
+main	test/ringbuffer_test.c	/^int main()$/;"	f	typeref:typename:int
+max_entry	inc/ringbuffer.h	/^	unsigned int max_entry;$/;"	m	struct:ringbuffer	typeref:typename:unsigned int
+msg	test/ringbuffer_test.c	/^struct msg{$/;"	s	file:
+msg_size	inc/ringbuffer.h	/^	unsigned int msg_size;$/;"	m	struct:ringbuffer	typeref:typename:unsigned int
+multiple_write_single_read_test	test/ringbuffer_test.c	/^void multiple_write_single_read_test()$/;"	f	typeref:typename:void
+read_addr	inc/ringbuffer.h	/^	void *read_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+read_packet_count	test/ringbuffer_test.c	/^int read_packet_count =0;$/;"	v	typeref:typename:int
+read_tail_addr	inc/ringbuffer.h	/^	void *read_tail_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+read_wrapper	test/ringbuffer_test.c	/^int read_wrapper(void *handle,void *msg_arg)$/;"	f	typeref:typename:int
+result	test/ringbuffer_test.c	/^uint64_t result[NUM_THREAD][2]={0}; \/\/ global array to validate result$/;"	v	typeref:typename:uint64_t[][2]
+ringbuffer	inc/ringbuffer.h	/^struct ringbuffer{$/;"	s
+ringbuffer_init	src/ringbuffer.c	/^void* ringbuffer_init(unsigned int msg_size,unsigned int max_entry)$/;"	f	typeref:typename:void *
+ringbuffer_read	src/ringbuffer.c	/^int ringbuffer_read(void *handle_arg, void *msg)$/;"	f	typeref:typename:int
+ringbuffer_write	src/ringbuffer.c	/^int ringbuffer_write(void *handle_arg, void *msg)$/;"	f	typeref:typename:int
+run	Makefile	/^run:$/;"	t
+sleep_ms	test/ringbuffer_test.c	/^void sleep_ms(int milliseconds)$/;"	f	typeref:typename:void
+start_addr	inc/ringbuffer.h	/^	void *start_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+thread_id	test/ringbuffer_test.c	/^	pthread_t thread_id;$/;"	m	struct:msg	typeref:typename:pthread_t	file:
+value	test/ringbuffer_test.c	/^	uint64_t value;$/;"	m	struct:msg	typeref:typename:uint64_t	file:
+write_addr	inc/ringbuffer.h	/^	void *write_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+write_packet_count	test/ringbuffer_test.c	/^int write_packet_count = 0;$/;"	v	typeref:typename:int
+write_tail_addr	inc/ringbuffer.h	/^	void *write_tail_addr;$/;"	m	struct:ringbuffer	typeref:typename:void *
+write_wrapper	test/ringbuffer_test.c	/^void write_wrapper(void *handle,void *msg)$/;"	f	typeref:typename:void
