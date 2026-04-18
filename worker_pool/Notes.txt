@@ -1,0 +1,46 @@
+
+#Author: Wineet
+
+Problem statement:
+
+Design a worker pool library, which Can provide following services
+1. User config based thread limitation, for each instance of a pool
+2. Provide Job posting job collection and job status API to user
+3. Job level failures and faults must be reported to user
+4. Worker pool instace closing API to User
+
+
+Design Details:
+
+job lists --> pending, done, running
+thread list -> ready running
+
+
+*create structure for job and thread
+
+
+*job post API*:  create a job for structure, (Making a non blocking call )
+                1. add job in pending job list,mark job status as pending API return success, think can we use couting semaphore here
+		2. Any job is posted, check any current thread is available to take job(in free thread list) if Yes then assign job to the thread and change job status to running,
+		3. if not and number of threads are less that max threads then create new thread and assign job to it
+
+
+*create thread*: 
+		1. create a posix thread, cancellable --> for control, while(1) execution for job exectuion, 
+		2. thread should wait on something if no job is available, job DS should hold executing function and argument
+
+*collect Job* :
+		1. Based on Job ID find job is available to collect, if it is running/pending job, Block the call wait till execution complete
+
+
+** To Do Task **
+1. create basic compilable files strcutre --> completed
+2. create framwork for WP init and declare all structure, make sure WP instances are unique
+	a. create link list library for maintaining list --> completed
+		(removing user_data traces from list is only pending, use API in main for testing)
+3. Implement WP init
+	a. initilize all needed lists and locks
+4. implement worker thread routine
+
+
+
