@@ -8,7 +8,7 @@
 #include<stdbool.h>
 #include "ll_list.h"
 
-
+#define WP_MAX_THREADS 2
 typedef enum job_status{
 	JOB_PENDING = 0,
 	JOB_RUNNING,
@@ -33,12 +33,13 @@ struct job{
 
 struct wp_handle{
 	pthread_mutex_t j_mutex;
+	pthread_mutex_t t_mutex;
 	list job_pending;
 	list job_completed;
 	list job_running;
 	list thread_ready;
 	list thread_running;
-	unsigned int active_thread;
+	unsigned int active_threads;
 	unsigned int max_threads;
 };
 
@@ -53,11 +54,11 @@ struct wp_thread{
 	struct wp_handle *handle;
 };
 
-struct wp_handle *wp_init(void);
+void *wp_init(void);
 int wp_thread_create(struct wp_handle *handle);
 void *wp_thread_routine(void *arg);
-int wp_job_post();
-void *wp_job_collect(void *job);
-
+void *wp_job_post(struct wp_handle *,pfn fptr,void *arg);
+void *wp_job_collect(struct wp_handle *,void *);
+void wp_deinit(void);
 
 #endif

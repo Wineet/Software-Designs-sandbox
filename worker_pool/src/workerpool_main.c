@@ -6,7 +6,7 @@
 #include "workerpool.h"
 #include "ll_list.h"
 
-struct wp_handle *wp_init()
+void *wp_init()
 {
 	printf("** wp_init **\n");
 	struct wp_handle *wp = calloc(sizeof(struct wp_handle),1);
@@ -18,21 +18,30 @@ struct wp_handle *wp_init()
 	list_ctor(&wp->thread_ready);
 	list_ctor(&wp->thread_running);
 	pthread_mutex_init(&wp->j_mutex,NULL);
+	pthread_mutex_init(&wp->t_mutex,NULL);
+	wp->max_threads = WP_MAX_THREADS;
 	return wp;
-};
+}
+
 /*Note Need better sync between thread create return and thread starts running
  * becuase thread might not start running yet but job posting is done and it iterate 
  * through list but it doesn;t find the thread in the list
  * */
+
+/* wp_thread_create:
+ * 	Func: used to create worker pool thread only
+ * 		Restricted access for wp Library */
 int wp_thread_create(struct wp_handle *handle)
 {
-	/*
-	 * should return thread node which is used in list*/
-	
-	/* create thread structure and add into ready list*/
+	if( handle->active_threads >= WP_MAX_THREADS)
+	{
+		printf("%s Error: active thread MAX \n",__func__);
+		return -1;
+	}
 	struct wp_thread *tn = calloc(sizeof(struct wp_thread),1);
 	if(tn == NULL)
 	{
+		printf("%s Error: calloc Failed\n",__func__);
 		goto bail;
 	}
 	tn->status = THREAD_READY;
@@ -44,89 +53,243 @@ int wp_thread_create(struct wp_handle *handle)
 	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 	if(0 != pthread_create(&tid,&attr,wp_thread_routine,tn))
 	{
-		printf("Error wp_thread_create Failed\n");
+		printf("%s Error: wp_thread_create Failed\n",__func__);
 		goto bail;
 	}
 	tn->tid = tid;
+	handle->active_threads++;
+	pthread_mutex_lock(&handle->t_mutex);
 	list_Append(&handle->thread_ready,&tn->node);
+	pthread_mutex_unlock(&handle->t_mutex);
 bail:
 	return 0;
 }
 
+/* Fetch pending job validate and return */
+static struct job *get_pending_job(struct wp_handle *handle)
+{
+	struct job *obj = NULL;
+	struct l_node *temp = NULL;
+	pthread_mutex_lock(&handle->j_mutex);
+	LIST_ITERATOR(&handle->job_pending,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if(obj != NULL && obj->f_ptr != NULL && obj->status == JOB_PENDING)
+		{
+			list_remove(&handle->job_pending,&obj->node);
+			list_Append(&handle->job_running,&obj->node);
+			break;
+		}
+		else
+		{
+			printf("Job Validation failed \n");
+			/*handle if any locks acquired and continue for next*/
+			continue;
+		}
+	}
+	pthread_mutex_unlock(&handle->j_mutex);
+	return obj;
+}
 void *wp_thread_routine(void *arg)
 {
+
 	/* Init thread */
 	char name[10]={0};
-	struct wp_thread *tn = (struct wp_thread*) tn;
+	struct wp_thread *tn = (struct wp_thread*) arg;
 	struct wp_handle *handle = tn->handle;
-	snprintf(name,50,"%s%d","worker_",handle->active_thread); //count should increase where we are calling create thread
+	snprintf(name,50,"%s%d","worker_",handle->active_threads); //count should increase where we are calling create thread
 	pthread_setname_np(pthread_self(),name);
+	sem_wait(&(tn->t_wait)); // Initial wait to sync with job Adding
 	while(1)
 	{
-		sem_wait(&(tn->t_wait));
-		struct l_node *temp=NULL;
-		/*
-		 * Need to iterate for all pending jobs till job list is empty because if all max threads are busy user will put job in pending */
-		LIST_ITERATOR(&handle->job_pending,temp)
-		{
+		struct job *obj = get_pending_job(handle);	
+		if( obj == NULL)
+			sem_wait(&(tn->t_wait));
+		pthread_mutex_lock(&handle->t_mutex);
+		list_remove(&handle->thread_ready,&tn->node);
+		list_Append(&handle->thread_running,&tn->node);
+		pthread_mutex_unlock(&handle->t_mutex);
+		obj->status = JOB_RUNNING;
+		obj->ret = obj->f_ptr(obj->arg); //  job is excuting
+		obj->status = JOB_DONE;
+		pthread_mutex_lock(&handle->j_mutex);
+		list_remove(&handle->job_running,&obj->node);
+		list_Append(&handle->job_completed,&obj->node);
+		pthread_mutex_unlock(&handle->j_mutex);
 
-		 /* pickup job from pending list*/
-			struct job *obj = RECOVER_LIST_DATA(struct job,node,temp);
-			/* Validating job here*/
-			if(obj != NULL && obj->f_ptr != NULL && obj->status == JOB_PENDING)
-			{
-		/*  remove job from the list and put it in running list  */
-// Do correct here !!!				list_remjob_don (&handle->job_pending,temp);
-				list_remove(&handle->thread_ready,&tn->node);
-				list_Append(&handle->thread_running,&tn->node);
-				obj->ret = obj->f_ptr(obj->arg);
-				obj->status = JOB_DONE;
-				list_Append(&handle->job_completed,temp);
-				sem_post(&obj->job_done);
-				list_remove(&handle->thread_running,&tn->node);
-				list_Append(&handle->thread_ready,&tn->node);
-
-			}
-			else
-			{
-				printf("Job Validation failed \n");
-				/*handle if any locks acquired and continue for next*
-				 */
-				continue;
-			}
-		}
-
-		/* 
-		 * remove thread from thread ready list and add in running list (should be done by job post API??)
-		 * start executing the job
-		 * update the job in completed list once job is completed, by setting job complete signal
-		 * put the thread itself in remove from thread running list and put in thread_ready list  (should be done by job collect API??)
-		 *
-		 * and come back, those jobs need to picked up
-		 */
-
+		sem_post(&obj->job_done); //In case if collect_job API is blocked
+		
+		pthread_mutex_lock(&handle->t_mutex);
+		list_remove(&handle->thread_running,&tn->node);
+		list_Append(&handle->thread_ready,&tn->node);
+		pthread_mutex_unlock(&handle->t_mutex);
 	}
 	return NULL;
 }
 
-int wp_job_post()
+static struct job *create_new_job(pfn f_ptr,void *arg)
 {
-/*
-	1. create job, add job to pending list
-	2. check any active thread present
- 			if No, & active thread< max thread create new thread and add it to active list
-if Yes
-	3. take ready thread refernce and signal the thread to start
-	4. thread will pick up the job from pending list and starts working
-	5. return refernce job id back to user */
-	return 0;
-}
-void *wp_job_collect(void *job)
-{
-	/* search the job in completed list
-	 * if job present return result and destroy created job node
-	 * if job not completed wait on job complete signal for that job
-	 * */
-	return NULL;
+	struct job *obj = calloc(sizeof(struct job),1);
+	if(obj == NULL)
+	{
+		return NULL;
+	}
+	obj->status = JOB_PENDING;
+	obj->f_ptr = f_ptr;
+	obj->arg = arg;
+	obj->ret = NULL;
+	sem_init(&obj->job_done,0,0);
+	return obj;
+
 }
 
+
+static void start_thread(struct wp_thread *tn)
+{
+	if(tn != NULL)
+	{
+		sem_post(&tn->t_wait);
+	}
+	return;
+}
+
+static struct wp_thread *get_active_thread(struct wp_handle *handle)
+{
+	if(handle == NULL)
+		return NULL;
+	struct wp_thread *obj = NULL;
+	struct l_node *temp = NULL;
+	pthread_mutex_lock(&handle->t_mutex);
+	LIST_ITERATOR(&handle->thread_ready,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct wp_thread,node,temp);
+		if( obj != NULL && obj->status == THREAD_READY )
+		{
+			list_remove(&handle->job_pending,&obj->node);
+			break;
+		}
+		else
+		{
+			if(obj!=NULL)
+				printf("%s:Error: Thread status %d\n",__func__,obj->status);
+			else
+				printf("%s:Error: Thread Validation failed\n",__func__);
+			continue;
+		}
+	}
+	pthread_mutex_unlock(&handle->t_mutex);
+	return obj;
+}
+
+
+/*
+	1. create job, add job to pending list
+	2. Add job in pending list
+	3. check any active thread present
+ 	if No, & active thread< max thread create new thread and add it to active list if Yes
+	4. take ready thread refernce and signal the thread to start
+	5. thread will pick up the job from pending list and starts working
+*/
+
+void *wp_job_post(struct wp_handle *handle,pfn f_ptr,void *arg)
+{
+	struct job *obj = create_new_job(f_ptr,arg);
+	if( obj == NULL)
+		return NULL;
+	struct wp_thread *tn = NULL;
+	/* post job in pending list*/
+	pthread_mutex_lock(&handle->j_mutex);
+	list_Append(&handle->job_pending,&obj->node);
+	pthread_mutex_unlock(&handle->j_mutex);
+	while( (tn = get_active_thread(handle) ) == NULL)
+	{
+
+		if(handle->active_threads >= WP_MAX_THREADS)
+		{
+			printf("warning: Max active threads \n");
+			break;
+		}
+		if(wp_thread_create(handle))
+			printf("warning: wp_thread_create Failed \n");
+	}
+	if(tn == NULL)
+		return obj;
+
+/* To Do Think: Is it a good idea to club append in get_active_thread call??*/
+	pthread_mutex_lock(&handle->t_mutex);
+	list_Append(&handle->thread_running,&tn->node);
+	pthread_mutex_unlock(&handle->t_mutex);
+	start_thread(tn);
+	return (void *)obj;
+}
+
+
+
+bool is_valid_job(struct wp_handle *handle, void *user_job)
+{
+	struct job *obj = NULL;
+	struct l_node *temp = NULL;
+	bool ret = false;
+	pthread_mutex_lock(&handle->j_mutex);
+	LIST_ITERATOR(&handle->job_pending,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj == user_job )
+		{
+			ret = true;
+			goto bail;
+		}
+
+	}
+	LIST_ITERATOR(&handle->job_running,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj == user_job )
+		{
+			ret = true;
+			goto bail;
+		}
+	}
+	LIST_ITERATOR(&handle->job_completed,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj == user_job )
+		{
+			ret = true;
+			goto bail;
+		}
+	}
+bail:
+	pthread_mutex_unlock(&handle->j_mutex);
+	return ret;
+}
+
+static void destroy_job(struct job *obj)
+{
+	sem_destroy(&obj->job_done);
+	free(obj);
+}
+
+/* search the job in completed list
+ * if job present return result and destroy created job node
+ * if job not completed wait on job complete signal for that job
+ * */
+
+void *wp_job_collect(struct wp_handle *handle,void *user_job)
+{
+	if(false == is_valid_job(handle,user_job))
+		return NULL;
+	struct job *obj = (struct job*)user_job;
+	if(obj->status != JOB_DONE)
+		sem_wait(&obj->job_done);
+	void *ret = obj->ret;
+	destroy_job(obj);
+	return ret;
+}
+
+
+void wp_deinit()
+{
+	printf("Yet to be Implemented\n");
+	return;
+}

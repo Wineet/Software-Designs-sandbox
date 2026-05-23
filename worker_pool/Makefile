@@ -1,6 +1,6 @@
 ###Compiler flags
 CC	:= gcc
-CFLAGS	:= -Wall
+CFLAGS	:= -Wall -g
 LDFLAGS	:= 
 SHAREDLIBFLAGS	:= -fPIC -shared
 
@@ -10,7 +10,7 @@ BUILD_DIR	:= build
 INC_DIR		:= inc
 TEST_DIR	:= test
 
-SRC	:= $(SRC_DIR)/workerpool_main.c
+SRC	:= $(SRC_DIR)/* #workerpool_main.c
 INC	:= -I$(INC_DIR)
 TARGET	:= $(BUILD_DIR)/libworkerpool.so
 TEST	:= $(TEST_DIR)/workerpool_test
