@@ -165,7 +165,7 @@ static struct wp_thread *get_active_thread(struct wp_handle *handle)
 		obj = RECOVER_LIST_DATA(struct wp_thread,node,temp);
 		if( obj != NULL && obj->status == THREAD_READY )
 		{
-			list_remove(&handle->job_pending,&obj->node);
+			//list_remove(&handle->job_pending,&obj->node);
 			break;
 		}
 		else
@@ -214,11 +214,12 @@ void *wp_job_post(struct wp_handle *handle,pfn f_ptr,void *arg)
 	}
 	if(tn == NULL)
 		return obj;
-
+#if 0
 /* To Do Think: Is it a good idea to club append in get_active_thread call??*/
 	pthread_mutex_lock(&handle->t_mutex);
 	list_Append(&handle->thread_running,&tn->node);
 	pthread_mutex_unlock(&handle->t_mutex);
+#endif
 	start_thread(tn);
 	return (void *)obj;
 }
