@@ -1,0 +1,52 @@
+
+#Author: Wineet
+
+Problem statement:
+
+Design a worker pool library, which Can provide following services
+1. User config based thread limitation, for each instance of a pool
+2. Provide Job posting job collection and job status API to user
+3. Job level failures and faults must be reported to user
+4. Worker pool instace closing API to User
+
+
+Design Details:
+
+job lists --> pending, done, running
+thread list -> ready running
+
+
+*create structure for job and thread
+
+
+*job post API*:  create a job for structure, (Making a non blocking call )
+                1. add job in pending job list,mark job status as pending API return success, think can we use couting semaphore here
+		2. Any job is posted, check any current thread is available to take job(in free thread list) if Yes then assign job to the thread and change job status to running,
+		3. if not and number of threads are less that max threads then create new thread and assign job to it
+
+
+*create thread*: 
+		1. create a posix thread, cancellable --> for control, while(1) execution for job exectuion, 
+		2. thread should wait on something if no job is available, job DS should hold executing function and argument
+
+*collect Job* :
+		1. Based on Job ID find job is available to collect, if it is running/pending job, Block the call wait till execution complete
+
+
+** To Do Task **
+1. Implement  wp_deinit sequence
+2. Test suit for multi threading and multi pool context for exception, sig sev & abrupt exit
+3. User level API seperations, Not exposing Other API or DS to user
+4. thread exception and abrupt error handling, without forcing main or WP code to exit
+5. thread Prio and sched changes via config file
+
+** solved Problem **
+
+1. Segmentation fault in active thread search after thread creation, check get_active_thread and thread creation sub routines  --> Solved, 
+2. Synchronization missing between thread create of job posting and thread routine, if job is posted and we are creating new thread, thread will see the job and move itself in running but job post thread create will add it in ready queue, which is wrong. Need to synchronize this. New threads need to wait till routine completes or new thoughts on it --> Solved
+3. some kind of sync problem with job collect and job performing, sometime works, few times face segmentation fault or no execution or aburpt exit --> solved
+4. if we don;t collect job and put while(1) i see SEG fault in second iteration of routine --> Done
+
+**** Current Probelm ****
+
+
