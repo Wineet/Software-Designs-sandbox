@@ -34,7 +34,7 @@ thread list -> ready running
 
 
 ** To Do Task **
-1. Implement  wp_deinit sequence
+1. Implement  wp_deinit sequence --> In progress
 2. Test suit for multi threading and multi pool context for exception, sig sev & abrupt exit
 3. User level API seperations, Not exposing Other API or DS to user
 4. thread exception and abrupt error handling, without forcing main or WP code to exit
