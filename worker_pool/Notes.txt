@@ -32,9 +32,13 @@ thread list -> ready running
 *collect Job* :
 		1. Based on Job ID find job is available to collect, if it is running/pending job, Block the call wait till execution complete
 
+*wp_deinit:
+		1. API will deinitilize all worker pool assets by killing threads, discarding jobs and freein the memory
+		2. If Any running job is in progress then thread killing won;t proceed further till job ends, it might lead to long wait or hang on wp_deinit
+
 
 ** To Do Task **
-1. Implement  wp_deinit sequence --> In progress
+1. IF thread dies in between or while doing job, clearing it's job
 2. Test suit for multi threading and multi pool context for exception, sig sev & abrupt exit
 3. User level API seperations, Not exposing Other API or DS to user
 4. thread exception and abrupt error handling, without forcing main or WP code to exit
@@ -42,11 +46,16 @@ thread list -> ready running
 
 ** solved Problem **
 
-1. Segmentation fault in active thread search after thread creation, check get_active_thread and thread creation sub routines  --> Solved, 
+1. Segmentation fault in active thread search after thread creation, check get_active_thread and thread creation sub routines  --> Solved,
+
 2. Synchronization missing between thread create of job posting and thread routine, if job is posted and we are creating new thread, thread will see the job and move itself in running but job post thread create will add it in ready queue, which is wrong. Need to synchronize this. New threads need to wait till routine completes or new thoughts on it --> Solved
 3. some kind of sync problem with job collect and job performing, sometime works, few times face segmentation fault or no execution or aburpt exit --> solved
 4. if we don;t collect job and put while(1) i see SEG fault in second iteration of routine --> Done
+5a. kill all threads needs modification in List Iterator
+5b. exit thread and object free synchronization 
+6. Implement  wp_deinit sequence --> Done
 
-**** Current Probelm ****
+**** Current Problem ****
+
 
 

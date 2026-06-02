@@ -1,4 +1,5 @@
 #include<stdio.h>
+#include<unistd.h>
 #include"workerpool.h"
 
 void *print_job(void *arg)
@@ -30,6 +31,7 @@ int main()
         int *ret = wp_job_collect(wp_handle,job);
 	printf("job  collect end ret 0x%x\n",*ret);
 	free(ret);
-	// Yet to be implemented wp_deinit();
+	sleep(1);
+	wp_deinit(wp_handle);
 	return 0;
 }

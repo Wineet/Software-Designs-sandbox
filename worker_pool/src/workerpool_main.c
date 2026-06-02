@@ -3,8 +3,15 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 #include "workerpool.h"
 #include "ll_list.h"
+
+static void kill_all_threads(struct wp_handle *handle);
+static void discard_all_jobs(struct wp_handle *handle);
+static int wp_thread_create(struct wp_handle *handle);
+static void *wp_thread_routine(void *arg);
 
 void *wp_init()
 {
@@ -31,7 +38,7 @@ void *wp_init()
 /* wp_thread_create:
  * 	Func: used to create worker pool thread only
  * 		Restricted access for wp Library */
-int wp_thread_create(struct wp_handle *handle)
+static int wp_thread_create(struct wp_handle *handle)
 {
 	if( handle->active_threads >= WP_MAX_THREADS)
 	{
@@ -45,7 +52,9 @@ int wp_thread_create(struct wp_handle *handle)
 		goto bail;
 	}
 	tn->status = THREAD_READY;
+	tn->exit = false;
 	sem_init(&tn->t_wait,0,0);
+	sem_init(&tn->exit_wait,0,0);
 	tn->handle = handle;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
@@ -83,28 +92,31 @@ static struct job *get_pending_job(struct wp_handle *handle)
 		else
 		{
 			printf("Job Validation failed \n");
-			/*handle if any locks acquired and continue for next*/
 			continue;
 		}
 	}
 	pthread_mutex_unlock(&handle->j_mutex);
 	return obj;
 }
-void *wp_thread_routine(void *arg)
+static void *wp_thread_routine(void *arg)
 {
 
 	/* Init thread */
 	char name[10]={0};
 	struct wp_thread *tn = (struct wp_thread*) arg;
 	struct wp_handle *handle = tn->handle;
-	snprintf(name,50,"%s%d","worker_",handle->active_threads); //count should increase where we are calling create thread
+	snprintf(name,50,"%s%d","worker_",handle->active_threads);
 	pthread_setname_np(pthread_self(),name);
 	sem_wait(&(tn->t_wait)); // Initial wait to sync with job Adding
-	while(1)
+	while(!tn->exit)
 	{
 		struct job *obj = get_pending_job(handle);	
 		if( obj == NULL)
+		{
 			sem_wait(&(tn->t_wait));
+			if(tn->exit == true)
+				break;
+		}
 		pthread_mutex_lock(&handle->t_mutex);
 		list_remove(&handle->thread_ready,&tn->node);
 		list_Append(&handle->thread_running,&tn->node);
@@ -124,6 +136,8 @@ void *wp_thread_routine(void *arg)
 		list_Append(&handle->thread_ready,&tn->node);
 		pthread_mutex_unlock(&handle->t_mutex);
 	}
+	printf("Thread Exiting ... \n");
+	sem_post(&tn->exit_wait);
 	return NULL;
 }
 
@@ -165,7 +179,6 @@ static struct wp_thread *get_active_thread(struct wp_handle *handle)
 		obj = RECOVER_LIST_DATA(struct wp_thread,node,temp);
 		if( obj != NULL && obj->status == THREAD_READY )
 		{
-			//list_remove(&handle->job_pending,&obj->node);
 			break;
 		}
 		else
@@ -228,6 +241,11 @@ void *wp_job_post(struct wp_handle *handle,pfn f_ptr,void *arg)
 
 bool is_valid_job(struct wp_handle *handle, void *user_job)
 {
+	if(handle == NULL || user_job == NULL)
+	{
+		printf("Error: %s Invalid Arguments \n",__func__);
+		return false;
+	}
 	struct job *obj = NULL;
 	struct l_node *temp = NULL;
 	bool ret = false;
@@ -284,13 +302,126 @@ void *wp_job_collect(struct wp_handle *handle,void *user_job)
 	if(obj->status != JOB_DONE)
 		sem_wait(&obj->job_done);
 	void *ret = obj->ret;
-	destroy_job(obj);
+
+	pthread_mutex_lock(&handle->j_mutex);
+	if(list_remove(&handle->job_completed,&obj->node ) != NULL)
+		destroy_job(obj);
+	pthread_mutex_unlock(&handle->j_mutex);
 	return ret;
 }
 
-
-void wp_deinit()
+static void kill_all_threads(struct wp_handle *handle)
 {
-	printf("Yet to be Implemented\n");
+	if(handle == NULL)
+	{
+		printf("ERROR : %s Invalid handle",__func__);
+		return;
+	}
+	struct wp_thread *obj = NULL;
+	struct l_node *temp = NULL;
+	pthread_mutex_lock(&handle->t_mutex);
+	LIST_ITERATOR(&handle->thread_ready,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct wp_thread,node,temp);
+		if( obj != NULL )
+		{
+			list_remove(&handle->thread_ready,&obj->node);
+			obj->exit = true;
+			start_thread(obj); // In case thread waiting for job
+			sem_wait(&obj->exit_wait);
+			free(obj); //List iterator needed to modify
+		}	
+	}
+	obj = NULL; temp = NULL;
+	LIST_ITERATOR(&handle->thread_running,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct wp_thread,node,temp);
+		if( obj != NULL )
+		{
+			list_remove(&handle->thread_running,&obj->node);	
+			obj->exit = true;
+			start_thread(obj);  
+			sem_wait(&obj->exit_wait);
+		   	free(obj); 
+		}	
+	}
+	pthread_mutex_unlock(&handle->t_mutex);
+	return;
+}
+
+static void discard_all_jobs(struct wp_handle *handle)
+{
+	if(handle == NULL)
+	{
+		printf("ERROR : %s Invalid handle",__func__);
+		return;
+	}
+	struct job *obj = NULL;
+	struct l_node *temp = NULL;
+	pthread_mutex_lock(&handle->j_mutex);
+	LIST_ITERATOR(&handle->job_pending,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj != NULL )
+		{
+			list_remove(&handle->job_pending,&obj->node);
+			printf(" %d obj=%p \n",__LINE__,obj);
+			free(obj);
+		}
+
+	}
+	obj = NULL; temp = NULL;
+	LIST_ITERATOR(&handle->job_running,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj != NULL )
+		{
+			list_remove(&handle->job_running,&obj->node);
+			printf(" %d obj=%p \n",__LINE__,obj);
+			free(obj);
+		}
+	}
+/* Note: completed job may or may not be collected by user, if not collected remove job from completed when user collects it
+ */
+	obj = NULL; temp = NULL;
+	LIST_ITERATOR(&handle->job_completed,temp)
+	{
+		obj = RECOVER_LIST_DATA(struct job,node,temp);
+		if( obj != NULL )
+		{
+			list_remove(&handle->job_completed,&obj->node);
+			printf(" %d obj=%p \n",__LINE__,obj);
+/*Release semphore of job too before free*/
+			free(obj);
+		}
+	}
+	pthread_mutex_unlock(&handle->j_mutex);
+	return;
+
+}
+/* wp_deinit()
+ * --> if deinit called all running jobs will be abruptly closed, complete job status will be lost, pending jobs will be discarded
+ * 1. Kill all worker pool (ready, running) threads, remove entries while doing
+ * 2. destroy all Jobs, running, pending and in progress, remove entries while doing
+ * 3. Deinit locks
+ * 4. Free wp memory
+ * */
+
+void wp_deinit(struct wp_handle *handle)
+{
+	printf("** wp_deinit ** \n");
+	if(handle == NULL)
+	{
+		printf("ERROR: %s Invalid Handle",__func__);
+		return ;
+	}
+	kill_all_threads(handle);
+	discard_all_jobs(handle);
+	if ( pthread_mutex_destroy(&handle->t_mutex) || pthread_mutex_destroy(&handle->j_mutex) )
+	{
+		printf("ERROR: %s Mutex Destroy Failed",__func__);
+		return;
+	}
+	free(handle);
 	return;
 }
