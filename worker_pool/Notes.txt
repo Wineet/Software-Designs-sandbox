@@ -38,11 +38,9 @@ thread list -> ready running
 
 
 ** To Do Task **
-1. IF thread dies in between or while doing job, clearing it's job
-2. Test suit for multi threading and multi pool context for exception, sig sev & abrupt exit
-3. User level API seperations, Not exposing Other API or DS to user
-4. thread exception and abrupt error handling, without forcing main or WP code to exit
-5. thread Prio and sched changes via config file
+1. IF thread dies in between or while doing job, correctly handling the job and reducing active thread count --> thread monitoring or something neeeded
+2. Test suit for multi threading and multi pool context for exception, sig sev & abrupt exit  --> In Progess  --> In Progress
+3. thread Prio and sched changes via config file
 
 ** solved Problem **
 
@@ -54,8 +52,9 @@ thread list -> ready running
 5a. kill all threads needs modification in List Iterator
 5b. exit thread and object free synchronization 
 6. Implement  wp_deinit sequence --> Done
+7. If i am creating More jobs than max WP threads facing segmentation Fault, less than that work fine. Need to debug --> Done
 
 **** Current Problem ****
 
-
+1. -ve test Implementation & validations 
 

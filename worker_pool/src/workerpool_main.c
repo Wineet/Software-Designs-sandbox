@@ -12,8 +12,9 @@ static void kill_all_threads(struct wp_handle *handle);
 static void discard_all_jobs(struct wp_handle *handle);
 static int wp_thread_create(struct wp_handle *handle);
 static void *wp_thread_routine(void *arg);
+static unsigned int get_active_thread_count(struct wp_handle *handle);
 
-void *wp_init()
+void *wp_init(unsigned int max_threads)
 {
 	printf("** wp_init **\n");
 	struct wp_handle *wp = calloc(sizeof(struct wp_handle),1);
@@ -26,7 +27,7 @@ void *wp_init()
 	list_ctor(&wp->thread_running);
 	pthread_mutex_init(&wp->j_mutex,NULL);
 	pthread_mutex_init(&wp->t_mutex,NULL);
-	wp->max_threads = WP_MAX_THREADS;
+	wp->max_threads = max_threads;
 	return wp;
 }
 
@@ -40,7 +41,7 @@ void *wp_init()
  * 		Restricted access for wp Library */
 static int wp_thread_create(struct wp_handle *handle)
 {
-	if( handle->active_threads >= WP_MAX_THREADS)
+	if( get_active_thread_count(handle) >= handle->max_threads )
 	{
 		printf("%s Error: active thread MAX \n",__func__);
 		return -1;
@@ -66,8 +67,9 @@ static int wp_thread_create(struct wp_handle *handle)
 		goto bail;
 	}
 	tn->tid = tid;
-	handle->active_threads++;
+
 	pthread_mutex_lock(&handle->t_mutex);
+	handle->active_threads++;
 	list_Append(&handle->thread_ready,&tn->node);
 	pthread_mutex_unlock(&handle->t_mutex);
 bail:
@@ -98,14 +100,23 @@ static struct job *get_pending_job(struct wp_handle *handle)
 	pthread_mutex_unlock(&handle->j_mutex);
 	return obj;
 }
+static unsigned int get_active_thread_count(struct wp_handle *handle)
+{
+	pthread_mutex_lock(&handle->t_mutex);
+	unsigned int t_cnt = handle->active_threads;
+	pthread_mutex_unlock(&handle->t_mutex);
+	return t_cnt;
+}
 static void *wp_thread_routine(void *arg)
 {
 
 	/* Init thread */
 	char name[10]={0};
+	char temp[10]={0};
 	struct wp_thread *tn = (struct wp_thread*) arg;
 	struct wp_handle *handle = tn->handle;
-	snprintf(name,50,"%s%d","worker_",handle->active_threads);
+	unsigned int t_cnt = get_active_thread_count(handle);
+	snprintf(name,50,"%s%d","worker_",t_cnt);
 	pthread_setname_np(pthread_self(),name);
 	sem_wait(&(tn->t_wait)); // Initial wait to sync with job Adding
 	while(!tn->exit)
@@ -116,14 +127,18 @@ static void *wp_thread_routine(void *arg)
 			sem_wait(&(tn->t_wait));
 			if(tn->exit == true)
 				break;
+			else
+				continue;
 		}
 		pthread_mutex_lock(&handle->t_mutex);
 		list_remove(&handle->thread_ready,&tn->node);
 		list_Append(&handle->thread_running,&tn->node);
 		pthread_mutex_unlock(&handle->t_mutex);
+		pthread_getname_np(pthread_self(),temp,sizeof(temp));
 		obj->status = JOB_RUNNING;
 		obj->ret = obj->f_ptr(obj->arg); //  job is excuting
 		obj->status = JOB_DONE;
+		obj->status = JOB_RUNNING;
 		pthread_mutex_lock(&handle->j_mutex);
 		list_remove(&handle->job_running,&obj->node);
 		list_Append(&handle->job_completed,&obj->node);
@@ -136,7 +151,7 @@ static void *wp_thread_routine(void *arg)
 		list_Append(&handle->thread_ready,&tn->node);
 		pthread_mutex_unlock(&handle->t_mutex);
 	}
-	printf("Thread Exiting ... \n");
+	printf("Thread Exiting ... exit=%d\n",tn->exit);
 	sem_post(&tn->exit_wait);
 	return NULL;
 }
@@ -217,7 +232,7 @@ void *wp_job_post(struct wp_handle *handle,pfn f_ptr,void *arg)
 	while( (tn = get_active_thread(handle) ) == NULL)
 	{
 
-		if(handle->active_threads >= WP_MAX_THREADS)
+		if( get_active_thread_count(handle) >= handle->max_threads)
 		{
 			printf("warning: Max active threads \n");
 			break;

@@ -53,7 +53,7 @@ struct wp_thread{
 	struct wp_handle *handle;
 };
 
-void *wp_init(void);
+void *wp_init(unsigned int max_threads);
 void *wp_job_post(struct wp_handle *,pfn fptr,void *arg);
 void *wp_job_collect(struct wp_handle *,void *);
 void wp_deinit(struct wp_handle *handle);
