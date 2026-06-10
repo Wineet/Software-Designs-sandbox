@@ -1,0 +1,38 @@
+#name : CI pipeline for Worker pool
+
+name: CI_pipeline
+
+on: 
+  push: 
+    branches: [ main, dev-branch-common ]
+    paths:
+      - 'worker_pool/**'
+      - '.github/workflows/worker_pool_ci.yml'
+  pull_request:
+    brnahces: [ main, dev-branch-common ]
+    paths:
+      - 'worker_pool/**'
+
+jobs: 
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      -uses: actions/checkout@v4
+
+      - name: Install dependancies
+        run:
+         sudo apt-get update
+         sudo apt-get install -y build-essential valgrind
+
+      - name: Compile
+        working-directory: worker_pool
+        run: make build
+
+      - name: Run Tests
+       working-directory: worker_pool
+       run: make run
+
+      - name: clean
+       working-directory: worker_pool
+       run: make clean
