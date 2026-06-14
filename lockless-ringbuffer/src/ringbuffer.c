@@ -34,7 +34,7 @@
 
 static inline void barrier_rw_complete(void)
 {
-	asm volatile("dsb sy" ::: "memory");
+ //	asm volatile("dsb sy" ::: "memory");
 }
 
 #undef MUTEX_LOCK

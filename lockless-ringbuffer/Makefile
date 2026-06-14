@@ -1,7 +1,7 @@
 ###Compiler flags
 CC	:= gcc
-CFLAGS	:= -Wall -fsanitize=thread
-LDFLAGS	:= -march=armv7-a -mcpu=cortex-a53 -mfpu=neon-vfpv4 -mfloat-abi=hard
+CFLAGS	:= -Wall
+LDFLAGS	:=
 SHAREDLIBFLAGS	:= -fPIC -shared
 
 #Directories
@@ -20,6 +20,7 @@ TEST_LINKING_LIBS	:= -l ringbuffer_lib \
 			   -lpthread
 
 build:
+	mkdir -p $(BUILD_DIR)
 	echo "***** compiling ringbuffer_lib.so *********"
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SRC) $(INC) $(SHAREDLIBFLAGS) -o $(TARGET)
 	echo "***** compiling ringbuffer_test ********"

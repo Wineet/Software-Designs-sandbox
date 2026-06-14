@@ -1,0 +1,63 @@
+#name : CI pipeline for Lockless RingBuffer
+
+name: CI_lockless_ringbuffer
+
+on: 
+  push: 
+    branches: [ main, dev-branch-common ]
+    paths:
+      - 'lockless-ringbuffer/**'
+      - '.github/workflows/lockless_ringbuffer_ci.yml'
+  pull_request:
+    branches: [ main, dev-branch-common ]
+    paths:
+      - 'lockless-ringbuffer/**'
+
+jobs: 
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependancies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential valgrind
+
+      - name: Compile
+        working-directory: lockless-ringbuffer
+        run: make build
+
+      - name: Run Tests
+        working-directory: lockless-ringbuffer
+        run: make run
+
+      - name: clean
+        working-directory: lockless-ringbuffer
+        run: make clean
+
+  memory-check:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependancies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential valgrind
+
+      - name: Compile
+        working-directory: lockless-ringbuffer
+        run: make build
+
+      - name: Run with Valgrind (Memory Leak Detection)
+        working-directory: lockless-ringbuffer
+        run: |
+          LD_LIBRARY_PATH=build valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./test/ringbuffer_test
+
+      - name: clean
+        working-directory: lockless-ringbuffer
+        run: make clean

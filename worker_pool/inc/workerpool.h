@@ -43,22 +43,19 @@ struct wp_handle{
 	unsigned int max_threads;
 };
 
-// Keep in Mind
-// user exposed API should be concurrent/ synchronised internally
-
 struct wp_thread{
 	thread_status status;
 	struct l_node node;
 	pthread_t tid;
 	sem_t t_wait;
+	sem_t exit_wait;
+	bool exit;
 	struct wp_handle *handle;
 };
 
-void *wp_init(void);
-int wp_thread_create(struct wp_handle *handle);
-void *wp_thread_routine(void *arg);
+void *wp_init(unsigned int max_threads);
 void *wp_job_post(struct wp_handle *,pfn fptr,void *arg);
 void *wp_job_collect(struct wp_handle *,void *);
-void wp_deinit(void);
+void wp_deinit(struct wp_handle *handle);
 
 #endif
