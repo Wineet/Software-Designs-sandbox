@@ -9,7 +9,7 @@ on:
       - 'worker_pool/**'
       - '.github/workflows/worker_pool_ci.yml'
   pull_request:
-    brnahces: [ main, dev-branch-common ]
+    branches: [ main, dev-branch-common ]
     paths:
       - 'worker_pool/**'
 
