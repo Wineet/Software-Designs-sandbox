@@ -20,6 +20,7 @@ TEST_LINKING_LIBS	:= -l ringbuffer_lib \
 			   -lpthread
 
 build:
+    mkdir -p $(BUILD_DIR)
 	echo "***** compiling ringbuffer_lib.so *********"
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SRC) $(INC) $(SHAREDLIBFLAGS) -o $(TARGET)
 	echo "***** compiling ringbuffer_test ********"
