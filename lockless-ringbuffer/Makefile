@@ -1,7 +1,7 @@
 ###Compiler flags
 CC	:= gcc
-CFLAGS	:= -Wall -fsanitize=thread
-LDFLAGS	:= -march=armv7-a -mcpu=cortex-a53 -mfpu=neon-vfpv4 -mfloat-abi=hard
+CFLAGS	:= -Wall
+LDFLAGS	:=
 SHAREDLIBFLAGS	:= -fPIC -shared
 
 #Directories
