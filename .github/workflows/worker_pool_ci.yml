@@ -36,3 +36,28 @@ jobs:
       - name: clean
         working-directory: worker_pool
         run: make clean
+
+  memory-check:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependancies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential valgrind
+
+      - name: Compile
+        working-directory: worker_pool
+        run: make build
+
+      - name: Run with Valgrind (Memory Leak Detection)
+        working-directory: worker_pool
+        run: |
+          LD_LIBRARY_PATH=build valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./test/workerpool_test
+
+      - name: clean
+        working-directory: worker_pool
+        run: make clean
