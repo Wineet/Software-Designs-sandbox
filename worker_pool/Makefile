@@ -20,6 +20,7 @@ TEST_LINKING_LIBS	:= -l workerpool \
 			   -lpthread
 
 build:
+	mkdir -p $(BUILD_DIR)
 	echo "***** compiling workerpool.so *********"
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SRC) $(INC) $(SHAREDLIBFLAGS) -o $(TARGET)
 	echo "***** compiling workerpool_test ********"
